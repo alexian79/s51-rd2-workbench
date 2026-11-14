@@ -122,7 +122,7 @@ real reason is one `ERROR` line in `~/.config/ghidra/<version>/application.log`.
 ## 7. Debugging firmware: what actually works in ucsim 0.8.15
 
 The simulator is a debugger, not only a loader. Every line below was run against this build; the
-three advertised forms that do **not** work are listed after the table.
+traps that make a command silently do nothing are called out after the table.
 
 Keep the console alive. `run` deliberately freezes its own console (ENTER stops the simulation), so
 a heredoc that closes stdin can end the process before the breakpoint is ever reached:
@@ -139,6 +139,7 @@ Or drive a session that outlives the client — `./ucsim_51 -t 89C51R -Z 3445`, 
 | stop at an instruction | `break 0x3a` | banner: `Stop at 0x00003a: (104) Breakpoint` + registers + the instruction |
 | stop on the Nth hit | `break 0x3a 2` | positional only; `break 0x3a hit 2` silently keeps `Hit 1` |
 | stop on a RAM/SFR access | `break iram w 0x30` | `w`/`r`, also `sfr w 0x8e`; reports `(112) Event break` at the instruction **after** the write |
+| stop on a condition | `break 0x3a if ACC==0x5a` | honoured, but the condition must be one token or quoted — see below |
 | step | `step`, `step 20`, `next` | units are `s ms us ns vclk fclk rclk wclk`; `cycle` is not one (`Unknown unit.`) |
 | print on every stop | `display /X iram[0x41]` | `1:/X iram[0x41] = 0xa5` |
 | act on a stop | `commands 1 "echo hit\n"` | runs at each accepted hit |
@@ -174,14 +175,25 @@ the one-count-per-edge suite exists to catch.
 `PacketSize=7fff;QStartNoAckMode+;qXfer:features:read+` and `qXfer:features:read:target.xml` serves
 a `gdb-target.dtd` target description. A front end that speaks RSP can therefore drive the core.
 
-### Advertised but broken
+### The silent-noop forms
 
-- **`break 0x3a if <expr>`** — in `help break`, rejected by the parser: it echoes the usage and
-  creates nothing (`info break` stays empty). Conditions are unusable, so "stop when this flag is
-  set" has to be a scripted `step`/`expression` loop or a watchpoint on a narrower address.
-- **`var name memory <addr>`** — `Parser error`; there are no user symbols, so no `break main`. The
-  built-in names in `info variables` (AUXR, AUXR1, CCAP0H …) do work in expressions.
-- **`break rom 0x3a`** and a named watchpoint (`break AUXR w`) — both rejected; fetch breakpoints
-  take a bare address, event breakpoints need `mem r|w addr`.
+- **Conditions work, in one spelling only.** `break 0x3a if ACC==0x5a` is honoured: at `0x3a`, just
+  after the program executes `MOV A,#0x5a`, it stops — while `if ACC==0x5b`, `if ACC!=0x5a` and
+  `if AUXR==0x09` do not stop and `if AUXR==0x08` does. The console splits on spaces, so the
+  condition must be **a single token**, or quoted: `break 0x3a if "ACC == 0x5a"` stops,
+  `if "ACC == 0x00"` does not.
+- **A bracket expression inside a condition is silently wrong.** `break 0x3a if iram[0x30]==0x00`
+  is a parse error that creates *no breakpoint at all*, and the quoted
+  `if "iram[0x30]==0x00"` creates one that never fires even when the byte does match. Bind a name
+  first: `var flag iram[0x40]`, then `break 0x3a if flag==0x5a` stops and `if flag==0x00` does not.
+- **`if 0` stops.** A bare numeric literal counts as true, so a literal `0` condition cannot be
+  used as a negative control — it will look like a working breakpoint.
+- **`var` takes the cell form, not the documented one.** `var flag iram[0x40]` and `var a sfr[0xe0]`
+  work and show up in `info variables`; the documented `var name memory <addr>` is a `Parser error`.
+  The failure is not fatal, so a script that ignores it goes on to condition on an undefined name —
+  which simply never fires.
+- **`break rom 0x3a`** is rejected (fetch breakpoints take a bare address; the grammar only accepts
+  `mem op addr`). A watchpoint by name works only as the name alone: `break flag` places **two**
+  event breakpoints on the variable's cell, one `read` and one `write`, while `break AUXR w` fails.
 - **no `finish`, no `bt`** — stepping out of a subroutine and a call stack do not exist. `info
   registers` prints `SP 0x60 -> f6 8d e3 …`; the return addresses are yours to read.
