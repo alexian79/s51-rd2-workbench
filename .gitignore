@@ -1,0 +1,4 @@
+# bring-up.sh clones everything under $WB_ROOT, which defaults to ~/s51-workbench
+# i.e. outside this repo. If you point WB_ROOT here, keep it out of git:
+s51-workbench/
+*.log
