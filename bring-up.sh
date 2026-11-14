@@ -89,7 +89,7 @@ if [ "$HAVE_GHIDRA" = 1 ]; then
 fi
 
 # ---------------------------------------------------------------- simulation floor
-step "simulation floor (25 counted suites + runtests, one binary)"
+step "simulation floor (26 counted suites + runtests, one binary)"
 out=$( cd s51-ucsim-rd2 && sh t/floor.sh "$WB_ROOT/$BIN" 2>&1 ) || true
 printf '%s\n' "$out" | sed 's/^/  /'
 line=$(printf '%s\n' "$out" | grep '^floor:' | tail -1)
