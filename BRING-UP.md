@@ -53,7 +53,8 @@ Grep for these exact strings; anything else is not a pass.
 Representative floor legs when green: `rd2registers PASS: 288/288`, `irctest PASS: 50/50`,
 `t2cnttest: PASS 30/30 legs`, `ident89c51r PASS: 36/36 transcripts byte-identical`,
 `rd2identity PASS: 38/38`, `x2test PASS: 15/15`, `eepromtest PASS: 29/29`,
-`bpcmdtest: PASS 25/25 legs`, `wptrtest: PASS 27/27 legs`.
+`bpcmdtest: PASS 25/25 legs`, `wptrtest: PASS 27/27 legs`, `symtest: PASS 14/14 legs`,
+`s51dbgtest: PASS: 68/68 checks` (the last two run against whichever binary the floor was given).
 
 Two lines that look like failures and are not:
 
@@ -186,11 +187,17 @@ Loading from t/isa.ihx
 233 words read from t/isa.ihx
 ```
 
-Two silencers are independent, and both have manufactured a false "nothing reports the load"
-finding: `-q`, and a console that is not the one reading your stdin. Over a pipe *without* `-c -`
-you get the banner and nothing else (306 bytes, no report), because the stdio console never sees
-the command; and the telnet console opened by `-Z` echoes `file` and stays silent about the load on
-every build. Pin the channel before concluding anything.
+Exactly two things silence it, and each has manufactured a false "nothing reports the load"
+finding: `-q`, and aiming the command at a console that is not reading your stdin. Nothing else
+does — measured on one binary, the report is there with stdin as a pty *or* a pipe, and with `-c -`
+*or* without it (`-c -` nominally adds the stdio console; the stdio console was reading stdin
+already, so on this binary it selects nothing). A capture holding only the banner means the `file`
+command never arrived, and the byte count is a red herring in either direction: both report lines
+echo the path you typed, so the same 233-word load measured **305 bytes** as
+`file "t/isa.ihx"` and **359 bytes** as an absolute path, and the capture also carries a varying
+`Wall time:` line. Assert the two lines, never a total. The telnet console opened by `-Z` is the
+one that echoes `file` and stays silent about the load on every build — that is the real second
+silencer, and it is why the driver proves a load by ROM readback.
 
 Readback is still the stronger check, because a word count proves a file was parsed, not that bytes
 landed where you think: `dump rom 0 0x07` after that load gives `02 00 30 32 ff ff ff ff`. Never use

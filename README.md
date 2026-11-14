@@ -25,10 +25,11 @@ It is idempotent — rerun it any time and it skips whatever is already done. It
 1. check for `git`, `python3`, `make`, `g++` (and `java` + Ghidra if you have them);
 2. clone the three repos into `$WB_ROOT` (default `~/s51-workbench`);
 3. clone the GPL simulator base `CrispStrobe/ucsim-stc`, check out commit `441710c`, and apply
-   `patches/rd2-vs-ucsim-stc-441710c.patch` — **40 files**, 30 modified `+1635 / -200` and 10 new
-   (+2483 lines);
+   `patches/rd2-vs-ucsim-stc-441710c.patch` — **38 files**, 28 modified `+2255 / -190` and 10 new
+   (+2483 lines). Four `configure`-generated files the author's tree also carries are left out on
+   purpose, so `./build.sh`'s `configure` step writes values for the machine actually building;
 4. build `ucsim_51`;
-5. run the **24-suite simulation floor** against that one binary and require zero not-green;
+5. run the **25-suite simulation floor** against that one binary and require zero not-green;
 6. install and compile the Ghidra language into `$GHIDRA`, then run the three Ghidra gates.
 
 Knobs: `WB_ROOT=/tmp/wb` (where the workbench lives), `GHIDRA=/path/to/ghidra_12.1.4_PUBLIC`,
@@ -40,13 +41,15 @@ The point of this bed is that no claim rests on a simulator agreeing with itself
 
 | check | result | what it pins |
 |---|---|---|
-| `t/floor.sh` (22 suites) | **0 not green** | cycle accuracy, the ten expanded-RAM boundaries, X2 clock modes, boot ROM, SPI bit clock, keyboard, EUART/BRG, prescaler, watchdog, PCA, interrupt priority, dual DPTR, ED2 EEPROM, one-count-per-edge |
+| `t/floor.sh` (25 counted suites + `runtests`) | **0 not green** | cycle accuracy, the ten expanded-RAM boundaries, X2 clock modes, boot ROM, SPI bit clock, keyboard, EUART/BRG, prescaler, watchdog, PCA, interrupt priority, dual DPTR, ED2 EEPROM, one-count-per-edge, assembler symbol bindings |
 | `runtests.py` | 11/20 upstream baselines | reported, **never counted** — it exits non-zero by design at 11/20, so "1 not green" has never meant this suite |
 | `xcompare.py` vs an independent Rust `i8051` core | pc **104/104**, cycles **104/104** | control flow and timing corroborated by a second core; the PSW deltas are bugs in *that* core, checked against the Atmel C51 manual |
 | `t2cnttest.py` | 30/30, and **9/30 before the fix** | a timer/PCA edge is counted exactly once — the regression gate for the port-mirror double-notify |
 | `eepromtest.py` | 29 legs (30 with `S51_REF`) | ED2 EEPROM timing / busy / window; the 30th leg proves the RD2 device transcript stayed byte-identical |
 | `bpcmdtest.py` | 25/25 — **6 legs fail on a pre-fix binary, by design** | what `break` and `var` accept and refuse: conditions at both polarities, the refusal text, `hit`, the `var` bindings |
 | `wptrtest.py` | 27/27 on **both** build families | watchpoint-as-assertion, plus which fetch-breakpoint stepping rule the binary implements (classified from behaviour, not version) |
+| `symtest.py` | 14/14 | a `.sym` from the assembler becomes bindings: `break _load_acc` stops once at `0x3a`, with a control leg requiring that the same command creates nothing when no symbols are loaded |
+| `s51dbgtest.py` | 68/68 on **both** build families | a scripted `-Z` debugger driven in JSON verbs: assertions on stop codes and `info break` re-reads, load proven by ROM readback against the image's own bytes |
 | `langtest.py` | 22/22 | registers, SFR map, memory blocks and dual DPTR as Ghidra sees them |
 | `rmwtest.py` | 10/10 | `ORL/ANL/XRL/DEC` on `AUXR1`: the **same bytes** run through the executing simulator and through Ghidra's static resolution must agree |
 | `banktest.py` | 3/3 | the `MOV AUXR1,A` case Ghidra cannot resolve statically — it first records Ghidra being wrong, then checks the `Bank51` override fixes it |
