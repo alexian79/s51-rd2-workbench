@@ -174,6 +174,26 @@ and a simulator killed at a timeout loses its buffered output, which looks exact
 breakpoint was never created". With one, `stops == [target]` says it fired and
 `stops == [sentinel]` proves the code ran to the end without firing.
 
+### Proving a program is actually loaded
+
+`file` prints nothing about the load **under `-q`** — `ucsim_51 -q -t 89C51R -c -` answers with the
+echo and the prompt, which is very easy to mistake for "the console never reports a load". Without
+`-q` it says both halves on stdout:
+
+```text
+Loading from t/isa.ihx
+233 words read from t/isa.ihx
+```
+
+Readback is still the stronger check, because a word count proves a file was parsed, not that bytes
+landed where you think: `dump rom 0 0x07` after that load gives `02 00 30 32 ff ff ff ff`. Never use
+"ROM is non-zero" as the test — an image with nothing loaded reads `ff ff ff ff ff ff ff ff`, not
+`00`, so it passes for any program. Byte-exact proof is available whenever you want it: `t/isa.ihx`
+is an ordinary Intel HEX file (fifteen type-`00` records, one type-`01`, every length and checksum
+valid), so parse it and compare against `dump rom`. The record type is at byte offset **7**, not
+right after the `:` — that field is the byte count, and reading it as a type makes a clean file look
+like it uses exotic record codes.
+
 ### Waveforms instead of printfs
 
 `conf` lists a `vcd` element, off by default. Bind signals by address and dump — port writes are
@@ -190,6 +210,11 @@ set hw vcd stop
 The file opens in Surfer/GTKWave (`b11111111 → b01010101 → b10101010` on `P1`, one `#<ps>` line per
 event). A counter edge that fires twice is visible in one screen, which is exactly the class of bug
 the one-count-per-edge suite exists to catch.
+
+If you parse the file rather than eyeballing it: in a split `$scope` line the scope name is index
+**2** (`$scope module ucsim_vcd_0 $end`); index 3 is `$end`, so an off-by-one names every signal
+`$end/P1`. Signals therefore read back as `ucsim_vcd_0/P1`, and `$var wire 8 ! P1 $end` is the
+id-to-name map.
 
 ### gdbserver
 
@@ -242,5 +267,13 @@ classify which rule the binary under test implements.
 - **`break rom 0x3a`** is rejected (fetch breakpoints take a bare address; the grammar only accepts
   `mem op addr`). A watchpoint by name works only as the name alone: `break flag` places **two**
   event breakpoints on the variable's cell, one `read` and one `write`, while `break AUXR w` fails.
+- **`delete` takes the id from `info break`, never an address.** `delete 0x3a` and `delete 58` print
+  nothing and leave every row in the table exactly as they were; `delete 1` removes the row numbered
+  1. The `del break` spelling prints a bare `Error`. Resolve address → id from `info break`, delete,
+  then re-read the table, because the reply text is not evidence that anything was removed.
+- **`Hit`, `Cnt` and `Cond` lie on a row that has never run.** A breakpoint created and never hit
+  prints `Hit 1  Cnt 1`, so `Hit` is not an execution counter, and `Cond` prints `true` for a
+  breakpoint with no condition at all. Neither column tells you what you asked for; the condition
+  text exists only in the `Breakpoint N at 0x… (cond="…")` reply.
 - **no `finish`, no `bt`** — stepping out of a subroutine and a call stack do not exist. `info
   registers` prints `SP 0x60 -> f6 8d e3 …`; the return addresses are yours to read.
