@@ -118,3 +118,70 @@ real reason is one `ERROR` line in `~/.config/ghidra/<version>/application.log`.
   you clone `vendor/mcs51-rs` yourself, so it is not part of the green floor.
 - The Atmel datasheets (`doc4235`, `doc4316`) are Microchip copyright and are **not** redistributed;
   citations give a section and a printed page number instead.
+
+## 7. Debugging firmware: what actually works in ucsim 0.8.15
+
+The simulator is a debugger, not only a loader. Every line below was run against this build; the
+three advertised forms that do **not** work are listed after the table.
+
+Keep the console alive. `run` deliberately freezes its own console (ENTER stops the simulation), so
+a heredoc that closes stdin can end the process before the breakpoint is ever reached:
+
+```sh
+( printf 'file "fw.ihx"\nbreak 0x3a\nrun\n'; sleep 5 ) | ./ucsim_51 -t 89C51R -q -c -
+```
+
+Or drive a session that outlives the client — `./ucsim_51 -t 89C51R -Z 3445`, then
+`nc 127.0.0.1 3445` and type (`2>` prompt). No respawn per probe, no lost state.
+
+| want | command | verified behaviour |
+|---|---|---|
+| stop at an instruction | `break 0x3a` | banner: `Stop at 0x00003a: (104) Breakpoint` + registers + the instruction |
+| stop on the Nth hit | `break 0x3a 2` | positional only; `break 0x3a hit 2` silently keeps `Hit 1` |
+| stop on a RAM/SFR access | `break iram w 0x30` | `w`/`r`, also `sfr w 0x8e`; reports `(112) Event break` at the instruction **after** the write |
+| step | `step`, `step 20`, `next` | units are `s ms us ns vclk fclk rclk wclk`; `cycle` is not one (`Unknown unit.`) |
+| print on every stop | `display /X iram[0x41]` | `1:/X iram[0x41] = 0xa5` |
+| act on a stop | `commands 1 "echo hit\n"` | runs at each accepted hit |
+| what led here | `history list` | disassembled ring of the last executions (`history info` → `len: 10000`) |
+| evaluate | `expression /X sfr[0x8e]`, `expression AUXR` | **brackets, never colons**: `iram[0x41]`, `sfr[0x8e]`, `rom[0]`, or an SFR name |
+| time a region | `timer add 1` → `timer start 1` → `timer get 1` | `240 clks` / `0.0000217 sec` for 20 instructions at 11.0592 MHz |
+| inspect | `dump sfr 0x80 0xff`, `di`, `dx`, `info registers`, `memory cell iram 0x40` | code space is **`rom`**; `get sfr` lies |
+
+The colon form is the trap to burn in: `expression dseg:0x30` prints `Parser error: syntax error`
+**and then `0`**, so a condition written that way is not an error, it is a permanently false test.
+
+### Waveforms instead of printfs
+
+`conf` lists a `vcd` element, off by default. Bind signals by address and dump — port writes are
+included, with real timestamps:
+
+```text
+set hw vcd file "/tmp/p1.vcd"
+set hw vcd add sfr 0x90          # auto-named P1;  add bits[0x90]  for a single bit
+set hw vcd start
+step 30
+set hw vcd stop
+```
+
+The file opens in Surfer/GTKWave (`b11111111 → b01010101 → b10101010` on `P1`, one `#<ps>` line per
+event). A counter edge that fires twice is visible in one screen, which is exactly the class of bug
+the one-count-per-edge suite exists to catch.
+
+### Undocumented gdbserver
+
+`-d <port>` still parses (`app.cc` assigns `rgdb_port`) although its usage line is commented out:
+`./ucsim_51 -t 89C51R -d 3333` answers the GDB remote protocol — `qSupported` replies
+`PacketSize=7fff;QStartNoAckMode+;qXfer:features:read+` and `qXfer:features:read:target.xml` serves
+a `gdb-target.dtd` target description. A front end that speaks RSP can therefore drive the core.
+
+### Advertised but broken
+
+- **`break 0x3a if <expr>`** — in `help break`, rejected by the parser: it echoes the usage and
+  creates nothing (`info break` stays empty). Conditions are unusable, so "stop when this flag is
+  set" has to be a scripted `step`/`expression` loop or a watchpoint on a narrower address.
+- **`var name memory <addr>`** — `Parser error`; there are no user symbols, so no `break main`. The
+  built-in names in `info variables` (AUXR, AUXR1, CCAP0H …) do work in expressions.
+- **`break rom 0x3a`** and a named watchpoint (`break AUXR w`) — both rejected; fetch breakpoints
+  take a bare address, event breakpoints need `mem r|w addr`.
+- **no `finish`, no `bt`** — stepping out of a subroutine and a call stack do not exist. `info
+  registers` prints `SP 0x60 -> f6 8d e3 …`; the return addresses are yours to read.

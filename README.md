@@ -72,6 +72,7 @@ Running `gh51` under both languages is the quickest way to see what the custom m
 | `Unsupported language: AT89C51RD2:BE:16:default` | Ghidra silently ignores modules missing `Module.manifest`, `lib/`, or a current-schema `.ldefs`. Run `./langbuild`; the real reason is one `ERROR` line in `~/.config/ghidra/<version>/application.log` |
 | language behaves oddly after a Ghidra upgrade | rerun `./langbuild` — it recompiles the `.sla` and re-installs the module |
 | `STOP: no binary at ...` or a build failure | `/tmp/s51-configure.log` and `/tmp/s51-make.log` |
+| firmware will not stop where you expect | `break addr if cond` is in the help text but rejected by the parser, and `run` freezes a console whose stdin has closed — see [`BRING-UP.md`](BRING-UP.md) §7 |
 | `expected 34 changed files after the patch, found N` | the vendor tree is not at `441710c`, or the patch did not land cleanly |
 | a suite seems to test the wrong build | every suite reads `S51_SIM` (binary) and `S51` (repo root); `floor.sh` exports both, and `S51_ROOT` moves the whole tree |
 | `eepromtest` prints 29, not 30 | the 30th leg is the RD2 identity check against a control binary given by `S51_REF` — not a defect |
