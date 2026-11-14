@@ -16,6 +16,10 @@ instead of lying about them.
     curl -fsSL https://raw.githubusercontent.com/alexian79/s51-rd2-workbench/main/bring-up.sh -o bring-up.sh
     sh bring-up.sh
 
+If you are an agent executing this rather than a person reading it, use
+[`BRING-UP.md`](BRING-UP.md): the exact strings each gate must print, exit-status semantics, and the
+ordering and console traps that otherwise cost a wasted run.
+
 It is idempotent — rerun it any time and it skips whatever is already done. It will:
 
 1. check for `git`, `python3`, `make`, `g++` (and `java` + Ghidra if you have them);
