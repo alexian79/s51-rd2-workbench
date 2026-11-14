@@ -176,14 +176,21 @@ breakpoint was never created". With one, `stops == [target]` says it fired and
 
 ### Proving a program is actually loaded
 
-`file` prints nothing about the load **under `-q`** — `ucsim_51 -q -t 89C51R -c -` answers with the
-echo and the prompt, which is very easy to mistake for "the console never reports a load". Without
-`-q` it says both halves on stdout:
+`file` reports the load on the **stdio console, and only without `-q`**. `ucsim_51 -q -t 89C51R
+-c -` answers with the echo and the prompt and nothing else, which is very easy to mistake for "the
+console never reports a load". Drop `-q` and both halves appear — and they cross a pipe perfectly
+well:
 
 ```text
 Loading from t/isa.ihx
 233 words read from t/isa.ihx
 ```
+
+Two silencers are independent, and both have manufactured a false "nothing reports the load"
+finding: `-q`, and a console that is not the one reading your stdin. Over a pipe *without* `-c -`
+you get the banner and nothing else (306 bytes, no report), because the stdio console never sees
+the command; and the telnet console opened by `-Z` echoes `file` and stays silent about the load on
+every build. Pin the channel before concluding anything.
 
 Readback is still the stronger check, because a word count proves a file was parsed, not that bytes
 landed where you think: `dump rom 0 0x07` after that load gives `02 00 30 32 ff ff ff ff`. Never use
