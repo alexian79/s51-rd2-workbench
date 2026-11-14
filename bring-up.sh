@@ -36,7 +36,7 @@ if [ "$SKIP_GHIDRA" != 1 ] && [ -x "$GHIDRA/support/analyzeHeadless" ]; then
   note "  ok  ghidra  $GHIDRA"
 else
   note "  --  ghidra not found at $GHIDRA (or SKIP_GHIDRA=1): running the simulator gates only."
-  note "      The three Ghidra-side suites and the language install are skipped, not passed."
+  note "      The four Ghidra-side suites and the language install are skipped, not passed."
 fi
 mkdir -p "$WB_ROOT"; cd "$WB_ROOT"
 PATCH=$PWD/$PATCH_REL
