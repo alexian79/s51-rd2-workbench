@@ -7,7 +7,7 @@ instead of lying about them.
 
 | repo | licence | what it is |
 |---|---|---|
-| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | the simulator: ucsim device-model and peripheral build-out, delivered as a patch against upstream, plus the 22-suite verification bed and the analysis notes |
+| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | the simulator: ucsim device-model and peripheral build-out, delivered as a patch against upstream, plus the verification bed — 25 counted suites plus `runtests` (reported, never counted) — and the analysis notes |
 | [`ghidra-at89c51rd2`](https://github.com/alexian79/ghidra-at89c51rd2) | Apache-2.0 | the Ghidra processor module: dual DPTR in Sleigh context, 1792 B on-chip XRAM, doc4235 SFR map, `gh51` headless front end |
 | [`ghidra-8051-dual-dptr`](https://github.com/alexian79/ghidra-8051-dual-dptr) | Apache-2.0 | the same bank model as a gated patch to Ghidra's *shared* `8051_main.sinc`, with the proof that it is inert for every language that does not opt in |
 
@@ -30,7 +30,7 @@ It is idempotent — rerun it any time and it skips whatever is already done. It
    purpose, so `./build.sh`'s `configure` step writes values for the machine actually building;
 4. build `ucsim_51`;
 5. run the **25-suite simulation floor** against that one binary and require zero not-green;
-6. install and compile the Ghidra language into `$GHIDRA`, then run the three Ghidra gates.
+6. install and compile the Ghidra language into `$GHIDRA`, then run the four Ghidra gates.
 
 Knobs: `WB_ROOT=/tmp/wb` (where the workbench lives), `GHIDRA=/path/to/ghidra_12.1.4_PUBLIC`,
 `SKIP_GHIDRA=1` (simulator only — those gates are then *skipped*, never silently passed).
@@ -50,9 +50,10 @@ The point of this bed is that no claim rests on a simulator agreeing with itself
 | `wptrtest.py` | 27/27 on **both** build families | watchpoint-as-assertion, plus which fetch-breakpoint stepping rule the binary implements (classified from behaviour, not version) |
 | `symtest.py` | 14/14 | a `.sym` from the assembler becomes bindings: `break _load_acc` stops once at `0x3a`, with a control leg requiring that the same command creates nothing when no symbols are loaded |
 | `s51dbgtest.py` | 68/68 on **both** build families | a scripted `-Z` debugger driven in JSON verbs: assertions on stop codes and `info break` re-reads, load proven by ROM readback against the image's own bytes |
-| `langtest.py` | 22/22 | registers, SFR map, memory blocks and dual DPTR as Ghidra sees them |
-| `rmwtest.py` | 10/10 | `ORL/ANL/XRL/DEC` on `AUXR1`: the **same bytes** run through the executing simulator and through Ghidra's static resolution must agree |
+| `langtest.py` | 18/18 | registers, SFR map, memory blocks and dual DPTR as Ghidra sees them |
+| `rmwtest.py` | 10/10 | `ORL/ANL/XRL/DEC/DJNZ` on `AUXR1`: the **same bytes** run through the executing simulator and through Ghidra's static resolution must agree |
 | `banktest.py` | 3/3 | the `MOV AUXR1,A` case Ghidra cannot resolve statically — it first records Ghidra being wrong, then checks the `Bank51` override fixes it |
+| `symmaptest.py` | 10/10 | one `.sym` given to **both** ucsim's `sym` command and `LoadSym51.java` inside Ghidra: every name must land in the same memory on both sides — including external-data symbols past `0xff`, where a reach test written against `AddressSpace.getSize()` (address-space **bits**, not extent) silently parks them in code |
 
 ## Using it
 
@@ -82,7 +83,7 @@ Running `gh51` under both languages is the quickest way to see what the custom m
 | `NOTE: expected 38 changed files after the patch, found N` | the vendor tree is not at `441710c`, or the patch did not land cleanly. The count is taken right after the apply — after `build.sh` the tree legitimately reports **42**, because `configure` rewrites the four generated files the patch leaves out |
 | a suite seems to test the wrong build | every suite reads `S51_SIM` (binary) and `S51` (repo root); `floor.sh` exports both, and `S51_ROOT` moves the whole tree |
 | `eepromtest` prints 29, not 30 | the 30th leg is the RD2 identity check against a control binary given by `S51_REF` — not a defect |
-| Ghidra suites interfere with each other | each starts a headless Ghidra with fixed project names: run `langtest`, `rmwtest`, `banktest` **one at a time** |
+| Ghidra suites interfere with each other | each starts a headless Ghidra with fixed project names: run `langtest`, `rmwtest`, `banktest`, `symmaptest` **one at a time** |
 | `xcompare.py` will not run | it drives the Rust `i8051` core; the `xval/` driver path-deps on `vendor/mcs51-rs`, which you clone yourself |
 
 ## Deliberately not here

@@ -116,12 +116,25 @@ if [ "$HAVE_GHIDRA" = 1 ]; then
   run_gh langtest
   run_gh rmwtest
   run_gh banktest
+
+  run_sim_gh() {
+    # $1 = a gate that lives in the SIM repo: it drives the simulator's `sym` command and
+    # LoadSym51.java against each other, so it needs s51-ucsim-rd2/gh and .../t, not the
+    # language repo. Still one headless Ghidra at a time, like every other gate here.
+    o=$( cd s51-ucsim-rd2 && S51="$WB_ROOT/s51-ucsim-rd2" \
+         S51_SIM="$WB_ROOT/$BIN" GHIDRA="$GHIDRA" timeout 900 python3 "t/$1.py" 2>&1 ) || true
+    s=$(printf '%s\n' "$o" | grep -E 'PASS|FAIL|legs' | tail -1)
+    printf '  %-12s %s\n' "$1" "${s:-no summary line}"
+    case "$s" in *FAIL*) FAILED="$FAILED $1" ;; esac
+    SUITES=$((SUITES + 1))
+  }
+  run_sim_gh symmaptest
 fi
 
 # ---------------------------------------------------------------- summary
 step "summary"
 printf '  simulation floor : %s\n' "$(printf '%s' "$line" | sed 's/floor: //')"
-[ "$HAVE_GHIDRA" = 1 ] && printf '  ghidra gates     : langtest, rmwtest, banktest (see above)\n'
+[ "$HAVE_GHIDRA" = 1 ] && printf '  ghidra gates     : langtest, rmwtest, banktest, symmaptest (see above)\n'
 printf '  simulator binary : %s\n' "$WB_ROOT/$BIN"
 printf '  try it           : cd %s/s51-ucsim-rd2 && ./s51 t/isa.ihx\n' "$WB_ROOT"
 [ "$HAVE_GHIDRA" = 1 ] && printf '  ghidra           : cd %s/ghidra-at89c51rd2 && ./gh51 demo ../s51-ucsim-rd2/t/isa.ihx\n' "$WB_ROOT"

@@ -12,7 +12,7 @@ Three repositories, two licences:
 
 | repo | licence | what it is |
 |---|---|---|
-| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | ucsim device-model + peripheral build-out as a patch against upstream, 22-suite verification bed, analysis notes |
+| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | ucsim device-model + peripheral build-out as a patch against upstream, verification bed of 25 counted suites plus `runtests` (reported, never counted), analysis notes |
 | [`ghidra-at89c51rd2`](https://github.com/alexian79/ghidra-at89c51rd2) | Apache-2.0 | Ghidra processor module: dual DPTR in Sleigh context, 1792 B on-chip XRAM, doc4235 SFR map, `gh51` headless front end |
 | [`ghidra-8051-dual-dptr`](https://github.com/alexian79/ghidra-8051-dual-dptr) | Apache-2.0 | the same bank model as a gated patch to Ghidra's shared `8051_main.sinc`, plus proof it is inert for languages that do not opt in |
 
@@ -45,13 +45,16 @@ Grep for these exact strings; anything else is not a pass.
 
 | gate | required output |
 |---|---|
-| `t/floor.sh` (22 suites, one binary) | `floor: 0 suite(s) not green` |
-| `langtest` | `PASS: 22/22 checks` |
+| `t/floor.sh` (25 counted suites plus `runtests` — reported, never counted — one binary) | `floor: 0 suite(s) not green` |
+| `langtest` | `PASS: 18/18 checks` |
 | `rmwtest` | `PASS: 10/10 cases agree with the simulator` |
 | `banktest` | `PASS: 3/3` |
+| `symmaptest` | `symmaptest: PASS 10/10 legs` |
 
 Representative floor legs when green: `rd2registers PASS: 288/288`, `irctest PASS: 50/50`,
-`t2cnttest: PASS 30/30 legs`, `ident89c51r PASS: 36/36 transcripts byte-identical`,
+`t2cnttest: PASS 30/30 legs`, `ident89c51r PASS: 36/36 transcripts byte-identical` (a guard against
+collateral damage: it compares the shared `-t 89C51R` transcript surface against `$S51_REF`, so
+agreeing with an unpatched build is the correct answer rather than a vacuous one),
 `rd2identity PASS: 38/38`, `x2test PASS: 15/15`, `eepromtest PASS: 29/29`,
 `bpcmdtest: PASS 25/25 legs`, `wptrtest: PASS 27/27 legs`, `symtest: PASS 14/14 legs`,
 `s51dbgtest: PASS: 68/68 checks` (the last two run against whichever binary the floor was given).
@@ -68,8 +71,8 @@ Two lines that look like failures and are not:
 - The language must be **installed before the simulation floor**: `banktest` runs *inside* the floor
   and resolves SFR names through the installed module. A machine that fails `banktest` first thing
   usually just has no module installed yet.
-- Run `langtest`, `rmwtest`, `banktest` **one at a time**: each starts a headless Ghidra with fixed
-  project names and they collide.
+- Run `langtest`, `rmwtest`, `banktest` and `symmaptest` **one at a time**: each starts a headless
+  Ghidra with fixed project names and they collide.
 - Syntax-check these scripts with `bash -n`. `sh -n` fails falsely because `gh51` uses arrays.
 - The simulator patch expects the vendor tree at commit `441710c` and **38** changed files, counted
   immediately after the apply. The same tree shows **42** once `build.sh` has run, because
@@ -86,7 +89,7 @@ Two lines that look like failures and are not:
 | `get sfr` | can report stale values — use `dump sfr 0x80 0xff` |
 | read-clear SFRs | reading one through the console **consumes the clear** |
 | `file` command | path must be quoted: `file "t/isa.ihx"` |
-| `step N` | a single step, not N |
+| `step N` | N steps, not one: from reset on `t/isa.ihx`, `step 1` lands PC at `0x000030`, `step 2` at `0x000033`, `step 3` at `0x000035`, `step 5` at `0x00003a` |
 | suites fail oddly | they read `S51` (repo root) and `S51_SIM` (binary); `S51_ROOT` relocates the tree |
 
 ```sh
@@ -150,7 +153,7 @@ Or drive a session that outlives the client — `./ucsim_51 -t 89C51R -Z 3445`, 
 | act on a stop | `commands 1 "echo hit\n"` | runs at each accepted hit |
 | what led here | `history list` | disassembled ring of the last executions (`history info` → `len: 10000`) |
 | evaluate | `expression /X sfr[0x8e]`, `expression AUXR` | **brackets, never colons**: `iram[0x41]`, `sfr[0x8e]`, `rom[0]`, or an SFR name |
-| time a region | `timer add 1` → `timer start 1` → `timer get 1` | `240 clks` / `0.0000217 sec` for 20 instructions at 11.0592 MHz |
+| time a region | `timer start 1` → `step 20` → `timer get 1` | `timer #1("time") ON 0.000030381944444 sec (336 clks)` on `t/isa.ihx` at the default 11.0592 MHz — seconds first, clocks parenthesised; timer 1 (`"time"`) already exists out of the start, so `timer add 1` only answers `Error: Timer 1 already exists` |
 | inspect | `dump sfr 0x80 0xff`, `di`, `dx`, `info registers`, `memory cell iram 0x40` | code space is **`rom`**; `get sfr` lies |
 
 The colon form is the trap to burn in: `expression dseg:0x30` prints `Parser error: syntax error`
@@ -285,9 +288,10 @@ classify which rule the binary under test implements.
   `mem op addr`). A watchpoint by name works only as the name alone: `break flag` places **two**
   event breakpoints on the variable's cell, one `read` and one `write`, while `break AUXR w` fails.
 - **`delete` takes the id from `info break`, never an address.** `delete 0x3a` and `delete 58` print
-  nothing and leave every row in the table exactly as they were; `delete 1` removes the row numbered
-  1. The `del break` spelling prints a bare `Error`. Resolve address → id from `info break`, delete,
-  then re-read the table, because the reply text is not evidence that anything was removed.
+  a bare `Error` and leave every row in the table exactly as it was; `delete 1` removes the row
+  numbered 1, and `del break` answers with the same bare `Error` — that reply is not a distinctive
+  symptom of any one spelling. A reply, or its absence, proves nothing either way: resolve
+  address → id from `info break`, delete, then re-read the table.
 - **`Hit`, `Cnt` and `Cond` lie on a row that has never run.** A breakpoint created and never hit
   prints `Hit 1  Cnt 1`, so `Hit` is not an execution counter, and `Cond` prints `true` for a
   breakpoint with no condition at all. Neither column tells you what you asked for; the condition
