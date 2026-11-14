@@ -79,7 +79,7 @@ Running `gh51` under both languages is the quickest way to see what the custom m
 | language behaves oddly after a Ghidra upgrade | rerun `./langbuild` — it recompiles the `.sla` and re-installs the module |
 | `STOP: no binary at ...` or a build failure | `/tmp/s51-configure.log` and `/tmp/s51-make.log` |
 | firmware will not stop where you expect | a `break … if` condition must be a single token or a quoted string (quoted brackets work; unquoted ones create nothing), `run` freezes its own console so a heredoc has to hold stdin open, and stop codes are the only discriminator: `(104)` fired, `(109)` merely stepped onto, `(112)` watchpoint — see [`BRING-UP.md`](BRING-UP.md) §7 |
-| `expected 34 changed files after the patch, found N` | the vendor tree is not at `441710c`, or the patch did not land cleanly |
+| `NOTE: expected 38 changed files after the patch, found N` | the vendor tree is not at `441710c`, or the patch did not land cleanly. The count is taken right after the apply — after `build.sh` the tree legitimately reports **42**, because `configure` rewrites the four generated files the patch leaves out |
 | a suite seems to test the wrong build | every suite reads `S51_SIM` (binary) and `S51` (repo root); `floor.sh` exports both, and `S51_ROOT` moves the whole tree |
 | `eepromtest` prints 29, not 30 | the 30th leg is the RD2 identity check against a control binary given by `S51_REF` — not a defect |
 | Ghidra suites interfere with each other | each starts a headless Ghidra with fixed project names: run `langtest`, `rmwtest`, `banktest` **one at a time** |

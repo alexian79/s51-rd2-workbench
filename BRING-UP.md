@@ -71,8 +71,11 @@ Two lines that look like failures and are not:
 - Run `langtest`, `rmwtest`, `banktest` **one at a time**: each starts a headless Ghidra with fixed
   project names and they collide.
 - Syntax-check these scripts with `bash -n`. `sh -n` fails falsely because `gh51` uses arrays.
-- The simulator patch expects the vendor tree at commit `441710c` and expects **34** changed files.
-  A different count means the base tree or the patch did not land cleanly — not a code bug.
+- The simulator patch expects the vendor tree at commit `441710c` and **38** changed files, counted
+  immediately after the apply. The same tree shows **42** once `build.sh` has run, because
+  `configure` rewrites the four generated files the patch deliberately excludes — that is the
+  intended consequence of shipping them out, not drift. A number other than 38 at apply time means
+  the base tree or the patch, never a code bug.
 
 ## 4. Simulator console traps
 
