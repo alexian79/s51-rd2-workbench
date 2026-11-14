@@ -25,9 +25,10 @@ It is idempotent — rerun it any time and it skips whatever is already done. It
 1. check for `git`, `python3`, `make`, `g++` (and `java` + Ghidra if you have them);
 2. clone the three repos into `$WB_ROOT` (default `~/s51-workbench`);
 3. clone the GPL simulator base `CrispStrobe/ucsim-stc`, check out commit `441710c`, and apply
-   `patches/rd2-vs-ucsim-stc-441710c.patch` — **34 files**, 24 modified `+1472 / -175` and 10 new;
+   `patches/rd2-vs-ucsim-stc-441710c.patch` — **40 files**, 30 modified `+1635 / -200` and 10 new
+   (+2483 lines);
 4. build `ucsim_51`;
-5. run the **22-suite simulation floor** against that one binary and require zero not-green;
+5. run the **24-suite simulation floor** against that one binary and require zero not-green;
 6. install and compile the Ghidra language into `$GHIDRA`, then run the three Ghidra gates.
 
 Knobs: `WB_ROOT=/tmp/wb` (where the workbench lives), `GHIDRA=/path/to/ghidra_12.1.4_PUBLIC`,
@@ -44,6 +45,8 @@ The point of this bed is that no claim rests on a simulator agreeing with itself
 | `xcompare.py` vs an independent Rust `i8051` core | pc **104/104**, cycles **104/104** | control flow and timing corroborated by a second core; the PSW deltas are bugs in *that* core, checked against the Atmel C51 manual |
 | `t2cnttest.py` | 30/30, and **9/30 before the fix** | a timer/PCA edge is counted exactly once — the regression gate for the port-mirror double-notify |
 | `eepromtest.py` | 29 legs (30 with `S51_REF`) | ED2 EEPROM timing / busy / window; the 30th leg proves the RD2 device transcript stayed byte-identical |
+| `bpcmdtest.py` | 25/25 — **6 legs fail on a pre-fix binary, by design** | what `break` and `var` accept and refuse: conditions at both polarities, the refusal text, `hit`, the `var` bindings |
+| `wptrtest.py` | 27/27 on **both** build families | watchpoint-as-assertion, plus which fetch-breakpoint stepping rule the binary implements (classified from behaviour, not version) |
 | `langtest.py` | 22/22 | registers, SFR map, memory blocks and dual DPTR as Ghidra sees them |
 | `rmwtest.py` | 10/10 | `ORL/ANL/XRL/DEC` on `AUXR1`: the **same bytes** run through the executing simulator and through Ghidra's static resolution must agree |
 | `banktest.py` | 3/3 | the `MOV AUXR1,A` case Ghidra cannot resolve statically — it first records Ghidra being wrong, then checks the `Bank51` override fixes it |
@@ -72,7 +75,7 @@ Running `gh51` under both languages is the quickest way to see what the custom m
 | `Unsupported language: AT89C51RD2:BE:16:default` | Ghidra silently ignores modules missing `Module.manifest`, `lib/`, or a current-schema `.ldefs`. Run `./langbuild`; the real reason is one `ERROR` line in `~/.config/ghidra/<version>/application.log` |
 | language behaves oddly after a Ghidra upgrade | rerun `./langbuild` — it recompiles the `.sla` and re-installs the module |
 | `STOP: no binary at ...` or a build failure | `/tmp/s51-configure.log` and `/tmp/s51-make.log` |
-| firmware will not stop where you expect | a `break … if` condition must be a single token or quoted, and a bracket expression in one registers but never fires; `run` also freezes a console whose stdin has closed — see [`BRING-UP.md`](BRING-UP.md) §7 |
+| firmware will not stop where you expect | a `break … if` condition must be a single token or a quoted string (quoted brackets work; unquoted ones create nothing), `run` freezes its own console so a heredoc has to hold stdin open, and stop codes are the only discriminator: `(104)` fired, `(109)` merely stepped onto, `(112)` watchpoint — see [`BRING-UP.md`](BRING-UP.md) §7 |
 | `expected 34 changed files after the patch, found N` | the vendor tree is not at `441710c`, or the patch did not land cleanly |
 | a suite seems to test the wrong build | every suite reads `S51_SIM` (binary) and `S51` (repo root); `floor.sh` exports both, and `S51_ROOT` moves the whole tree |
 | `eepromtest` prints 29, not 30 | the 30th leg is the RD2 identity check against a control binary given by `S51_REF` — not a defect |

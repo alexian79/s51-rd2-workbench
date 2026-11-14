@@ -69,9 +69,9 @@ else
   note "  patch applied: $PATCH_REL"
 fi
 # the patch is verified to leave zero content differences against the tree every suite was run
-# against; if the working tree already matches, git status shows the same 24 modified files.
+# against; if the working tree already matches, git status shows the same 30 modified files.
 n=$(git -C "$V" status --porcelain | wc -l)
-[ "$n" -eq 34 ] || note "  NOTE: expected 34 changed files after the patch, found $n"
+[ "$n" -eq 40 ] || note "  NOTE: expected 40 changed files after the patch, found $n"
 
 # ---------------------------------------------------------------- build
 step "build ucsim"
@@ -88,7 +88,7 @@ if [ "$HAVE_GHIDRA" = 1 ]; then
 fi
 
 # ---------------------------------------------------------------- simulation floor
-step "simulation floor (22 suites, one binary)"
+step "simulation floor (24 suites, one binary)"
 out=$( cd s51-ucsim-rd2 && sh t/floor.sh "$WB_ROOT/$BIN" 2>&1 ) || true
 printf '%s\n' "$out" | sed 's/^/  /'
 line=$(printf '%s\n' "$out" | grep '^floor:' | tail -1)

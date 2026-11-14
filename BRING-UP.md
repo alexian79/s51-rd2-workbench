@@ -52,7 +52,8 @@ Grep for these exact strings; anything else is not a pass.
 
 Representative floor legs when green: `rd2registers PASS: 288/288`, `irctest PASS: 50/50`,
 `t2cnttest: PASS 30/30 legs`, `ident89c51r PASS: 36/36 transcripts byte-identical`,
-`rd2identity PASS: 38/38`, `x2test PASS: 15/15`, `eepromtest PASS: 29/29`.
+`rd2identity PASS: 38/38`, `x2test PASS: 15/15`, `eepromtest PASS: 29/29`,
+`bpcmdtest: PASS 25/25 legs`, `wptrtest: PASS 27/27 legs`.
 
 Two lines that look like failures and are not:
 
@@ -119,7 +120,7 @@ real reason is one `ERROR` line in `~/.config/ghidra/<version>/application.log`.
 - The Atmel datasheets (`doc4235`, `doc4316`) are Microchip copyright and are **not** redistributed;
   citations give a section and a printed page number instead.
 
-## 7. Debugging firmware: what actually works in ucsim 0.8.15
+## 7. Debugging firmware: what actually works in this build
 
 The simulator is a debugger, not only a loader. Every line below was run against this build; the
 traps that make a command silently do nothing are called out after the table.
@@ -137,9 +138,9 @@ Or drive a session that outlives the client — `./ucsim_51 -t 89C51R -Z 3445`, 
 | want | command | verified behaviour |
 |---|---|---|
 | stop at an instruction | `break 0x3a` | banner: `Stop at 0x00003a: (104) Breakpoint` + registers + the instruction |
-| stop on the Nth hit | `break 0x3a 2` | positional only; `break 0x3a hit 2` silently keeps `Hit 1` |
+| stop on the Nth hit | `break 0x3a hit 2` | honoured here (`Hit 2`, stops on the second crossing); upstream 0.8.15 accepts the keyword and silently keeps `Hit 1`. Positional `break 0x3a 2` works on both |
 | stop on a RAM/SFR access | `break iram w 0x30` | `w`/`r`, also `sfr w 0x8e`; reports `(112) Event break` at the instruction **after** the write |
-| stop on a condition | `break 0x3a if ACC==0x5a` | honoured, but the condition must be one token or quoted — see below |
+| stop on a condition | `break 0x3a if ACC==0x5a` | one token, or quoted for spaces and brackets — see below |
 | step | `step`, `step 20`, `next` | units are `s ms us ns vclk fclk rclk wclk`; `cycle` is not one (`Unknown unit.`) |
 | print on every stop | `display /X iram[0x41]` | `1:/X iram[0x41] = 0xa5` |
 | act on a stop | `commands 1 "echo hit\n"` | runs at each accepted hit |
@@ -150,6 +151,28 @@ Or drive a session that outlives the client — `./ucsim_51 -t 89C51R -Z 3445`, 
 
 The colon form is the trap to burn in: `expression dseg:0x30` prints `Parser error: syntax error`
 **and then `0`**, so a condition written that way is not an error, it is a permanently false test.
+
+### Reading a stop
+
+The stop banner's **status code** is the discriminator, and it has to be counted at the address you
+care about:
+
+| code | meaning |
+|---|---|
+| `(104) Breakpoint` | a breakpoint fired |
+| `(109) stepped N ticks` | a `step` merely landed on that address |
+| `(112) Event break` | a watchpoint fired; reported at the instruction *after* the access |
+
+`Stop at 0x00003a:` is printed in all three cases, so counting that string proves nothing. Likewise
+`info break`'s `Cond` column reads `false` on every conditional row, whether or not the condition
+held: the condition text appears only in the trailing `cond="…"`, and it is never what decides a
+stop.
+
+Scripted sessions also need a **sentinel** — a second, unconditional breakpoint past the point of
+interest (`break 0x44`). Without it a session whose tested breakpoint never fires simulates forever,
+and a simulator killed at a timeout loses its buffered output, which looks exactly like "the
+breakpoint was never created". With one, `stops == [target]` says it fired and
+`stops == [sentinel]` proves the code ran to the end without firing.
 
 ### Waveforms instead of printfs
 
@@ -168,12 +191,26 @@ The file opens in Surfer/GTKWave (`b11111111 → b01010101 → b10101010` on `P1
 event). A counter edge that fires twice is visible in one screen, which is exactly the class of bug
 the one-count-per-edge suite exists to catch.
 
-### Undocumented gdbserver
+### gdbserver
 
-`-d <port>` still parses (`app.cc` assigns `rgdb_port`) although its usage line is commented out:
-`./ucsim_51 -t 89C51R -d 3333` answers the GDB remote protocol — `qSupported` replies
-`PacketSize=7fff;QStartNoAckMode+;qXfer:features:read+` and `qXfer:features:read:target.xml` serves
-a `gdb-target.dtd` target description. A front end that speaks RSP can therefore drive the core.
+`-d <portnum>` is in `--help` here; upstream 0.8.15 assigns `rgdb_port` in `app.cc` but leaves its
+usage line commented out, so the option is invisible there. Either way
+`./ucsim_51 -t 89C51R -d 3333` answers the GDB remote protocol: `qSupported` replies with
+`PacketSize=7fff;QStartNoAckMode+;qXfer:features:read+`, and `qXfer:features:read:target.xml`
+serves a `gdb-target.dtd` target description. A front end that speaks RSP can therefore drive
+the core.
+
+### Stepping onto a breakpoint
+
+Upstream tests a fetch breakpoint only under `steps_done > 0` (`cl_uc::do_brk`), and that counter
+resets at every stop — so the first instruction fetched after *every* stop is exempt. The result is
+that `step` can never reach an armed address (12 single steps across one give zero `(104)`) and,
+worse, once a `step` has landed on that address, a following `run` sails straight past the
+breakpoint sitting there. This build exempts only the fetch of the address the breakpoint itself
+stopped us on — the one fetch that genuinely would re-trigger at once — so `step` arrives at it and
+`run` stops in the right place. `step 30` fired it mid-flight on both kinds of build; `step 2` still
+depends on parity relative to the last stop. `t/wptrtest.py` legs WP-K13/K14/K15 pin all of it, and
+classify which rule the binary under test implements.
 
 ### The silent-noop forms
 
@@ -182,16 +219,26 @@ a `gdb-target.dtd` target description. A front end that speaks RSP can therefore
   `if AUXR==0x09` do not stop and `if AUXR==0x08` does. The console splits on spaces, so the
   condition must be **a single token**, or quoted: `break 0x3a if "ACC == 0x5a"` stops,
   `if "ACC == 0x00"` does not.
-- **A bracket expression inside a condition is silently wrong.** `break 0x3a if iram[0x30]==0x00`
-  is a parse error that creates *no breakpoint at all*, and the quoted
-  `if "iram[0x30]==0x00"` creates one that never fires even when the byte does match. Bind a name
-  first: `var flag iram[0x40]`, then `break 0x3a if flag==0x5a` stops and `if flag==0x00` does not.
-- **`if 0` stops.** A bare numeric literal counts as true, so a literal `0` condition cannot be
-  used as a negative control — it will look like a working breakpoint.
-- **`var` takes the cell form, not the documented one.** `var flag iram[0x40]` and `var a sfr[0xe0]`
-  work and show up in `info variables`; the documented `var name memory <addr>` is a `Parser error`.
-  The failure is not fatal, so a script that ignores it goes on to condition on an undefined name —
-  which simply never fires.
+- **A bracket expression has to be quoted, and then it works.** `break 0x3a if iram[0x40]==0x5a`
+  is refused outright — the console splits on spaces, the condition arrives as several words, and
+  nothing is created. Quoted, it is evaluated correctly: `if "iram[0x40]==0x5a"` stops there,
+  `if "iram[0x40]==0x5b"` runs on to the sentinel. A named cell reads better and is what
+  `t/bpcmdtest.py` pins: `var z iram[0x40]`, then `break 0x3a if z==0x5a`.
+- **A condition that is not a string is refused, never ignored.** `if 0`, `if 1` and a misspelled
+  keyword (`iff ACC==0x5a`) used to build an **unconditional** breakpoint: the grammar branch
+  matched, the condition came out as the empty string, and the breakpoint then stopped at
+  everything. This build refuses each of them, creates nothing, and says why (`A condition has to
+  be a word or a quoted string`). On unpatched 0.8.15 a literal `0` looks exactly like a working
+  breakpoint, so no negative control there may ever be a bare number.
+- **`hit` is honoured.** `break 0x3a hit 2` reads `Hit 2` and stops on the second crossing, like
+  the positional `break 0x3a 2`; the event forms take it too (`break iram w 0x30 hit 2`). Upstream
+  0.8.15 accepts the keyword, silently keeps `Hit 1` and stops on the first crossing.
+- **`var` binds a cell; its old usage line was wrong.** `var counter iram 0x30`, `var flag
+  iram[0x40]`, `var a sfr[0xe0]` and bare `var scratch` (a slot of its own in `variables[]`) all
+  work; the literal `var counter memory 0x30` is refused, because the `memory` in the old usage
+  line was a placeholder that people typed as a keyword. The usage line now spells the two real
+  forms. The failure was never fatal, so a script that ignored it went on to condition on an
+  undefined name — which simply never fires.
 - **`break rom 0x3a`** is rejected (fetch breakpoints take a bare address; the grammar only accepts
   `mem op addr`). A watchpoint by name works only as the name alone: `break flag` places **two**
   event breakpoints on the variable's cell, one `read` and one `write`, while `break AUXR w` fails.
