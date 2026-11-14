@@ -76,6 +76,13 @@ Two lines that look like failures and are not:
 - Run `langtest`, `rmwtest`, `banktest` and `symmaptest` **one at a time**: each starts a headless
   Ghidra with fixed project names and they collide.
 - Syntax-check these scripts with `bash -n`. `sh -n` fails falsely because `gh51` uses arrays.
+- **A green floor leaves no processes behind.** `wptrtest` kills one session on purpose — a watchpoint
+  that never fires leaves the sled running, and "killed" is that leg's evidence — and a core sitting in
+  `run` never polls stdin, so closing the pipe cannot stop it. A timeout that kills only the driving
+  `sh` therefore strands the simulator reparented to init, burning a core. `t/simproc.py:run_pipe`
+  kills the whole process group; route any new console pipeline through it rather than
+  `subprocess.run`. Verify after a run with
+  `ps -eo pid,ppid,args | awk '$2==1 && /ucsim/'`, which must print nothing.
 - The simulator patch expects the vendor tree at commit `441710c` and **38** changed files, counted
   immediately after the apply. The same tree shows **42** once `build.sh` has run, because
   `configure` rewrites the four generated files the patch deliberately excludes — that is the
