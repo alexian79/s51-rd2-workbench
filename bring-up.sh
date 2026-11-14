@@ -80,6 +80,13 @@ BIN=s51-ucsim-rd2/vendor/ucsim-stc/ucsim/src/sims/s51.src/ucsim_51
 [ -x "$BIN" ] || bail "no binary at $BIN"
 note "  built  $BIN"
 
+if [ "$HAVE_GHIDRA" = 1 ]; then
+  # banktest runs INSIDE the floor below and needs the language installed to resolve anything,
+  # so the install happens here, before the floor -- not down with the Ghidra gates.
+  step "install + compile the AT89C51RD2 language"
+  ( cd ghidra-at89c51rd2 && GHIDRA="$GHIDRA" ./langbuild ) 2>&1 | tail -3 | sed 's/^/  /'
+fi
+
 # ---------------------------------------------------------------- simulation floor
 step "simulation floor (22 suites, one binary)"
 out=$( cd s51-ucsim-rd2 && sh t/floor.sh "$WB_ROOT/$BIN" 2>&1 ) || true
@@ -93,8 +100,7 @@ SUITES=$((SUITES + 1))
 
 # ---------------------------------------------------------------- ghidra side
 if [ "$HAVE_GHIDRA" = 1 ]; then
-  step "install + compile the AT89C51RD2 language"
-  ( cd ghidra-at89c51rd2 && GHIDRA="$GHIDRA" ./langbuild ) 2>&1 | tail -3 | sed 's/^/  /'
+  # (language already installed above, before the floor)
 
   step "Ghidra gates (headless, one at a time)"
   run_gh() {
