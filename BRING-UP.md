@@ -82,7 +82,11 @@ Two lines that look like failures and are not:
   `sh` therefore strands the simulator reparented to init, burning a core. `t/simproc.py:run_pipe`
   kills the whole process group; route any new console pipeline through it rather than
   `subprocess.run`. Verify after a run with
-  `ps -eo pid,ppid,args | awk '$2==1 && /ucsim/'`, which must print nothing.
+  `ps -eo pid,ppid,args | awk '$2==1 && /89C51/'`, which must print nothing — match the **device
+  argument**, not a binary name: the control builds this bed compares against are not called
+  anything like `ucsim`, and a name-based pattern walks straight past them. `t/floor.sh` runs this
+  audit at the end of every floor and fails the run as `process-leak(N)` when anything survives, so a
+  leak cannot pass silently.
 - The simulator patch expects the vendor tree at commit `441710c` and **38** changed files, counted
   immediately after the apply. The same tree shows **42** once `build.sh` has run, because
   `configure` rewrites the four generated files the patch deliberately excludes — that is the
