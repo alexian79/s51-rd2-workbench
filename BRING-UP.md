@@ -12,7 +12,7 @@ Three repositories, two licences:
 
 | repo | licence | what it is |
 |---|---|---|
-| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | ucsim device-model + peripheral build-out as a patch against upstream, verification bed of 26 counted suites plus `runtests` (reported, never counted), analysis notes |
+| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | ucsim device-model + peripheral build-out as a patch against upstream, verification bed of 27 counted suites plus `runtests` (reported, never counted), analysis notes |
 | [`ghidra-at89c51rd2`](https://github.com/alexian79/ghidra-at89c51rd2) | Apache-2.0 | Ghidra processor module: dual DPTR in Sleigh context, 1792 B on-chip XRAM, doc4235 SFR map, `gh51` headless front end |
 | [`ghidra-8051-dual-dptr`](https://github.com/alexian79/ghidra-8051-dual-dptr) | Apache-2.0 | the same bank model as a gated patch to Ghidra's shared `8051_main.sinc`, plus proof it is inert for languages that do not opt in |
 
@@ -45,7 +45,7 @@ Grep for these exact strings; anything else is not a pass.
 
 | gate | required output |
 |---|---|
-| `t/floor.sh` (26 counted suites plus `runtests` — reported, never counted — one binary) | `floor: 0 suite(s) not green` |
+| `t/floor.sh` (27 counted suites plus `runtests` — reported, never counted — one binary) | `floor: 0 suite(s) not green` |
 | `langtest` | `PASS: 18/18 checks` |
 | `rmwtest` | `PASS: 10/10 cases agree with the simulator` |
 | `banktest` | `PASS: 3/3` |

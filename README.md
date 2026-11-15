@@ -7,7 +7,7 @@ instead of lying about them.
 
 | repo | licence | what it is |
 |---|---|---|
-| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | the simulator: ucsim device-model and peripheral build-out, delivered as a patch against upstream, plus the verification bed — 26 counted suites plus `runtests` (reported, never counted) — and the analysis notes |
+| [`s51-ucsim-rd2`](https://github.com/alexian79/s51-ucsim-rd2) | GPL-2.0-or-later | the simulator: ucsim device-model and peripheral build-out, delivered as a patch against upstream, plus the verification bed — 27 counted suites plus `runtests` (reported, never counted) — and the analysis notes |
 | [`ghidra-at89c51rd2`](https://github.com/alexian79/ghidra-at89c51rd2) | Apache-2.0 | the Ghidra processor module: dual DPTR in Sleigh context, 1792 B on-chip XRAM, doc4235 SFR map, `gh51` headless front end |
 | [`ghidra-8051-dual-dptr`](https://github.com/alexian79/ghidra-8051-dual-dptr) | Apache-2.0 | the same bank model as a gated patch to Ghidra's *shared* `8051_main.sinc`, with the proof that it is inert for every language that does not opt in |
 
@@ -25,8 +25,8 @@ It is idempotent — rerun it any time and it skips whatever is already done. It
 1. check for `git`, `python3`, `make`, `g++` (and `java` + Ghidra if you have them);
 2. clone the three repos into `$WB_ROOT` (default `~/s51-workbench`);
 3. clone the GPL simulator base `CrispStrobe/ucsim-stc`, check out commit `441710c`, and apply
-   `patches/rd2-vs-ucsim-stc-441710c.patch` — **38 files**, 28 modified `+2494 / -192` and 10 new
-   (+2483 lines). Four `configure`-generated files the author's tree also carries are left out on
+   `patches/rd2-vs-ucsim-stc-441710c.patch` — **40 files**, 28 modified `+2514 / -192` and 12 new
+   (+3539 lines). Four `configure`-generated files the author's tree also carries are left out on
    purpose, so `./build.sh`'s `configure` step writes values for the machine actually building;
 4. build `ucsim_51`;
 5. run the **26-suite simulation floor** against that one binary and require zero not-green;
@@ -41,7 +41,7 @@ The point of this bed is that no claim rests on a simulator agreeing with itself
 
 | check | result | what it pins |
 |---|---|---|
-| `t/floor.sh` (26 counted suites + `runtests`) | **0 not green** | cycle accuracy, the ten expanded-RAM boundaries, X2 clock modes, boot ROM, SPI bit clock, keyboard, EUART/BRG, prescaler, watchdog, PCA, interrupt priority, dual DPTR, ED2 EEPROM, one-count-per-edge, assembler symbol bindings, linker-map bindings from a real sdld link |
+| `t/floor.sh` (27 counted suites + `runtests`) | **0 not green** | cycle accuracy, the ten expanded-RAM boundaries, X2 clock modes, boot ROM, SPI bit clock, keyboard, EUART/BRG, prescaler, watchdog, PCA, interrupt priority, dual DPTR, ED2 EEPROM, one-count-per-edge, assembler symbol bindings, linker-map bindings from a real sdld link, and a motor/gear/tach plant with firmware closing the loop inside the simulator |
 | `runtests.py` | 11/20 upstream baselines | reported, **never counted** — it exits non-zero by design at 11/20, so "1 not green" has never meant this suite |
 | `xcompare.py` vs an independent Rust `i8051` core | pc **104/104**, cycles **104/104** | control flow and timing corroborated by a second core; the PSW deltas are bugs in *that* core, checked against the Atmel C51 manual |
 | `t2cnttest.py` | 30/30, and **9/30 before the fix** | a timer/PCA edge is counted exactly once — the regression gate for the port-mirror double-notify |
@@ -81,7 +81,7 @@ Running `gh51` under both languages is the quickest way to see what the custom m
 | language behaves oddly after a Ghidra upgrade | rerun `./langbuild` — it recompiles the `.sla` and re-installs the module |
 | `STOP: no binary at ...` or a build failure | `/tmp/s51-configure.log` and `/tmp/s51-make.log` |
 | firmware will not stop where you expect | a `break … if` condition must be a single token or a quoted string (quoted brackets work; unquoted ones create nothing), `run` freezes its own console so a heredoc has to hold stdin open, and stop codes are the only discriminator: `(104)` fired, `(109)` merely stepped onto, `(112)` watchpoint — see [`BRING-UP.md`](BRING-UP.md) §7 |
-| `NOTE: expected 38 changed files after the patch, found N` | the vendor tree is not at `441710c`, or the patch did not land cleanly. The count is taken right after the apply — after `build.sh` the tree legitimately reports **42**, because `configure` rewrites the four generated files the patch leaves out |
+| `NOTE: expected 40 changed files after the patch, found N` | the vendor tree is not at `441710c`, or the patch did not land cleanly. The count is taken right after the apply — after `build.sh` the tree legitimately reports **44**, because `configure` rewrites the four generated files the patch leaves out |
 | a suite seems to test the wrong build | every suite reads `S51_SIM` (binary) and `S51` (repo root); `floor.sh` exports both, and `S51_ROOT` moves the whole tree |
 | `eepromtest` prints 29, not 30 | the 30th leg is the RD2 identity check against a control binary given by `S51_REF` — not a defect |
 | Ghidra suites interfere with each other | each starts a headless Ghidra with fixed project names: run `langtest`, `rmwtest`, `banktest`, `symmaptest` **one at a time** |
