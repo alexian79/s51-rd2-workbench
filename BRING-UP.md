@@ -56,7 +56,7 @@ Representative floor legs when green: `rd2registers PASS: 288/288`, `irctest PAS
 collateral damage: it compares the shared `-t 89C51R` transcript surface against `$S51_REF`, so
 agreeing with an unpatched build is the correct answer rather than a vacuous one),
 `rd2identity PASS: 38/38`, `x2test PASS: 15/15`, `eepromtest PASS: 29/29`,
-`bpcmdtest: PASS 25/25 legs`, `wptrtest: PASS 27/27 legs`, `symtest: PASS 14/14 legs`,
+`bpcmdtest: PASS 25/25 legs`, `wptrtest: PASS 27/27 legs`, `symtest: PASS 16/16 legs`,
 `maptest: PASS 10/10 legs` (a `.map` linked by sdcc 4.6.0, wide and narrow layouts, bound
 through the same area rule as the `.sym`),
 `s51dbgtest: PASS: 68/68 checks` (the last two run against whichever binary the floor was given).
