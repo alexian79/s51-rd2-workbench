@@ -25,11 +25,12 @@ It is idempotent — rerun it any time and it skips whatever is already done. It
 1. check for `git`, `python3`, `make`, `g++` (and `java` + Ghidra if you have them);
 2. clone the three repos into `$WB_ROOT` (default `~/s51-workbench`);
 3. clone the GPL simulator base `CrispStrobe/ucsim-stc`, check out commit `441710c`, and apply
-   `patches/rd2-vs-ucsim-stc-441710c.patch` — **40 files**, 28 modified `+2597 / -223` and 12 new
+   `patches/rd2-vs-ucsim-stc-441710c.patch` — **40 files**, 28 modified `+2606 / -223` and 12 new
    (+3565 lines). Four `configure`-generated files the author's tree also carries are left out on
    purpose, so `./build.sh`'s `configure` step writes values for the machine actually building;
 4. build `ucsim_51`;
-5. run the **26-suite simulation floor** against that one binary and require zero not-green;
+5. run the **27-suite simulation floor** (plus `runtests`, reported and never counted) against
+   that one binary and require zero not-green;
 6. install and compile the Ghidra language into `$GHIDRA`, then run the four Ghidra gates.
 
 Knobs: `WB_ROOT=/tmp/wb` (where the workbench lives), `GHIDRA=/path/to/ghidra_12.1.4_PUBLIC`,
