@@ -1,0 +1,14 @@
+{"cmd":"load","path":"@IMG@","device":"89C51RD2"}
+{"cmd":"break","addr":"0x327c"}
+{"cmd":"cont","timeout":10}
+{"cmd":"dump","space":"sfr","start":"0x88","stop":"0x8d"}
+{"cmd":"cont","timeout":10}
+{"cmd":"dump","space":"sfr","start":"0x88","stop":"0x8d"}
+{"cmd":"cont","timeout":10}
+{"cmd":"dump","space":"sfr","start":"0x88","stop":"0x8d"}
+{"cmd":"del_break","addr":"0x327c"}
+{"cmd":"step","n":20000}
+{"cmd":"pc"}
+{"cmd":"step","n":20000}
+{"cmd":"pc"}
+{"cmd":"regs"}
