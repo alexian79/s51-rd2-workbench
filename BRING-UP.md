@@ -8,6 +8,10 @@ Fetch it raw:
 
     curl -fsSL https://raw.githubusercontent.com/alexian79/s51-rd2-workbench/main/BRING-UP.md
 
+On **Windows**, both verified routes (WSL and native MSYS2), the nine platform fixes and the
+expected green strings live in [`WINDOWS-BRINGUP.md`](WINDOWS-BRINGUP.md) — read it before
+building natively; the all-MSYS runtime contract alone cost a 26-suite red floor to find.
+
 Three repositories, two licences:
 
 | repo | licence | what it is |

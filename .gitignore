@@ -1,4 +1,13 @@
 # bring-up.sh clones everything under $WB_ROOT, which defaults to ~/s51-workbench
 # i.e. outside this repo. If you point WB_ROOT here, keep it out of git:
 s51-workbench/
+s51-workbench-win/
+refb3-win/
+refb-install-win/
+*.zip
 *.log
+# Windows route artifacts (see WINDOWS-BRINGUP.md): third-party tools + control binaries
+ghidra_*/
+jdk-*/
+control/
+native-support/
